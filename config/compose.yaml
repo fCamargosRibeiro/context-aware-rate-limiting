@@ -1,0 +1,30 @@
+name: context-aware-rate-limiting
+
+x-replica: &replica
+  build:
+    context: ..
+    dockerfile: config/Dockerfile
+  environment:
+    REDIS_HOST: redis
+  depends_on:
+    redis:
+      condition: service_healthy
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server","--appendonly","yes"]
+    volumes:
+      - ledger:/data
+    healthcheck:
+      test: ["CMD","redis-cli","ping"]
+      interval: 2s
+      timeout: 1s
+      retries: 15
+  replica-a:
+    <<: *replica
+    ports: ["127.0.0.1:8081:8080"]
+  replica-b:
+    <<: *replica
+    ports: ["127.0.0.1:8082:8080"]
+volumes:
+  ledger: {}

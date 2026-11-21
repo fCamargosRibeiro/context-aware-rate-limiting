@@ -1,0 +1,68 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.5.7'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.poc'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(25)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'redis.clients:jedis:5.2.0'
+	testImplementation 'org.testcontainers:testcontainers:1.21.3'
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testCompileOnly 'org.projectlombok:lombok'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+	implementation 'com.bucket4j:bucket4j_jdk17-jedis:8.15.0'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+['integration', 'component'].each { suite ->
+    def sources = sourceSets.create(suite) {
+        java.srcDirs = ["src/test-${suite}/java", "src/test-commons/java"]
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+    configurations[sources.implementationConfigurationName].extendsFrom(configurations.testImplementation)
+    configurations[sources.runtimeOnlyConfigurationName].extendsFrom(configurations.testRuntimeOnly)
+    def suiteTask = tasks.register("${suite}Test", Test) {
+        testClassesDirs = sources.output.classesDirs
+        classpath = sources.runtimeClasspath
+        useJUnitPlatform()
+    }
+    check.dependsOn(suiteTask)
+}
+
+tasks.register('report', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.camargos.ratelimit.monitoring.ReportCli'
+    ['cutoff','window','grace','minimum'].each { k ->
+        if (project.hasProperty(k)) systemProperty k, project.property(k)
+    }
+    if (project.hasProperty('events')) args project.property('events')
+}
+
+tasks.register('investigate', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.camargos.ratelimit.investigation.InvestigationCli'
+    if (project.hasProperty('mode')) args project.property('mode')
+    if (project.hasProperty('budget')) systemProperty 'budget', project.property('budget')
+}
+sourceSets.test.java.srcDir 'src/test-commons/java'
