@@ -35,6 +35,10 @@ public abstract class ReplicaFixture {
       container = new GenericContainer<>("redis:7-alpine").withExposedPorts(6379);
       container.start();
       host = container.getHost();
+      // Docker Desktop publishes local test ports reliably on IPv4 on Windows.
+      if (System.getProperty("os.name").startsWith("Windows") && "localhost".equalsIgnoreCase(host)) {
+        host = "127.0.0.1";
+      }
       port = container.getMappedPort(6379);
     } else {
       try (var free = new ServerSocket(0)) {

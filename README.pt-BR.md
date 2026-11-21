@@ -8,7 +8,7 @@ Duas réplicas Spring Boot compartilham no Redis um bucket Bucket4j por identida
 
 Use JDK 25 e Docker com Compose. O Wrapper executa as suítes unitária, de integração e de componente durante o `build`. As duas últimas usam Testcontainers por padrão. Com um executável Redis local, defina `REDIS_TEST_BINARY` com seu caminho absoluto para executar os mesmos testes sem Docker. Os relatórios e a investigação local dispensam Redis e AWS.
 
-Execute os comandos abaixo a partir da raiz do repositório. O Compose publica as réplicas em localhost nas portas 8081 e 8082. Aguarde a inicialização de ambas com `docker compose -f config/compose.yaml logs replica-a replica-b`. Os exemplos repetem a consulta na outra réplica e repetem a ordem com a chave original de cada operação. Use uma nova chave para uma operação nova. O volume do Redis persiste após `docker compose -f config/compose.yaml down`.
+Execute os comandos abaixo a partir da raiz do repositório. O Compose publica as réplicas em localhost nas portas 8081 e 8082. Após a subida, execute `curl -i http://127.0.0.1:8081/lookups` e `curl -i http://127.0.0.1:8082/lookups` (use `curl.exe` no Windows PowerShell). Aguarde até ambas responderem HTTP 405 ao GET na rota que aceita apenas POST. Os exemplos repetem a consulta na outra réplica e repetem a ordem com a chave original de cada operação. Para iniciar outra jornada, troque as duas chaves. O volume do Redis persiste após `docker compose -f config/compose.yaml down`.
 
 ### Windows PowerShell
 

@@ -12,6 +12,12 @@ Os XMLs por classe ficam em `build/test-results/<tarefa>/`. Para reproduzir sem 
 
 ## Etapa 1 — Admissão
 
+Na revalidação de 21/11/2026, o build padrão compilou a aplicação e parou em `:componentTest`. A preparação de Redis pelo Testcontainers falhou com `Could not find a valid Docker environment`. Com `REDIS_TEST_BINARY` definido, `.\gradlew.bat clean build` passou em 1 min 5 s com as contagens da tabela acima.
+
+O JAR gerado por `bootJar` também atendeu HTTP em duas JVMs Windows, nas portas 55730 e 55736, com Redis temporário compartilhado. Uma consulta encontrada na primeira gerou uma ordem na segunda. A confirmação e o retry retornaram HTTP 200 com o mesmo `paymentOrderId` e houve um evento de ordem para aquela consulta. Em outra identidade, nove consultas de aquecimento deixaram uma ficha. A disputa retornou 200 na primeira JVM e 429 na segunda. Os recibos de diretório passaram de 11 para 12. O recibo `directory:d48abda5-678f-492c-9d81-0afb7c042c78` continha o destinatário vencedor `found-a`. O experimento HTTP inteiro durou 188 ms desde antes da primeira reserva, dentro do primeiro intervalo de reposição. A leitura direta do saldo final zero ocorreu em `LastTokenTest`, com relógio congelado.
+
+O PowerShell retornou `CommandNotFoundException` para `docker compose version` e `docker info`. Essa pendência foi resolvida na revalidação com Docker Desktop registrada abaixo.
+
 | Critério | Teste executado | Comportamento observado | Alcance |
 |---|---|---|---|
 | ADM-03 | LastTokenTest | Uma ficha inicial, relógio parado. Réplica A retornou 200 e leu apenas seu destinatário. B retornou 429 com zero leituras. Saldo final zero. | Duas portas e clientes independentes em dois contextos Spring na mesma JVM de teste. |
@@ -75,8 +81,21 @@ Com o mínimo de 12, nenhuma das sequências ponderadas gerou duas janelas conse
 
 Para o deploy, a alternativa é uma falha simultânea de dependência. Faltam a saúde dessa dependência e o comportamento após rollback. A próxima verificação é comparar os traces de confirmação. Para a concentração, uma jornada legítima de consulta ou interrupção do cliente também explicaria a ausência de ordens. Faltam intenção e tentativas de confirmação no cliente. Conferir a telemetria desse cliente antecede qualquer hipótese de uso indevido.
 
+## Revalidação com Docker Desktop em 21/11/2026
+
+O build padrão passou em 24 s com Docker Engine 29.9.3, Compose v5.7.0 e Redis 7.4.12. Comando executado no Windows: `.\gradlew.bat clean build report investigate -Pmode=simulated --console=plain`. As suítes usaram Testcontainers sem `REDIS_TEST_BINARY` e sem `TESTCONTAINERS_HOST_OVERRIDE`. Os XMLs registraram oito testes unitários, três de integração e quatro de componente, com zero falhas, erros ou testes ignorados.
+
+O Testcontainers 1.21.3 recebia HTTP 400 ao consultar o Engine. A atualização para 1.21.4 permitiu criar os containers. No Windows, o acesso do Jedis ao Redis publicado em localhost ainda apresentou timeouts; o uso de 127.0.0.1 na fixture para esse host local permitiu concluir o build padrão.
+
+| Verificação | Resultado observado |
+|---|---|
+| Compose | Em um projeto isolado, `docker compose -f config/compose.yaml config --quiet` e `up -d --build` concluíram. Redis saudável e réplicas respondendo em 8081 e 8082. |
+| Jornada e crédito | Consulta na primeira réplica e ordem na segunda. Os retries cruzados conservaram os IDs. Partindo de oito fichas antes da confirmação, nove novas consultas foram admitidas e a seguinte recebeu 429. Houve um evento de ordem. |
+| Última ficha | Com nove consultas de aquecimento para a outra identidade, as chamadas concorrentes receberam 200 e 429. Os recibos passaram de 20 para 21 e o novo recibo continha o destinatário vencedor. O ciclo levou 579 ms, dentro do primeiro minuto. No teste de componente com relógio fixo: `first=200 second=429 reads=1,0 balance=0`. |
+| Persistência | Após `down` e `up -d --build` conservando o volume, as duas réplicas devolveram os IDs originais. A lista de eventos permaneceu em 46 entradas antes e depois dos retries. Os containers temporários foram encerrados com `down`. |
+| Relatórios | As tarefas de monitoramento e investigação terminaram no mesmo build com dados sintéticos e transporte Bedrock simulado. A avaliação remota permanece pendente. |
+
 ## Verificações externas pendentes
 
-- `docker compose up -d --build` e `docker compose config` dependem do Docker, ausente neste Windows. As imagens, a rede e o volume da demonstração, assim como a inicialização padrão pelo Testcontainers, permanecem pendentes. O caminho alternativo executou Redis real, as mesmas suítes e o JAR em duas JVMs.
 - `investigate -Pmode=bedrock` requer AWS CLI v2, região, modelo e credenciais habilitadas. A CLI estava ausente. Latência, uso de tokens, custo e qualidade de um modelo real permanecem pendentes.
 - O Wrapper reportou uso de APIs obsoletas no build. A compatibilidade com Gradle 10 está fora da execução verificada.

@@ -8,7 +8,7 @@ Two Spring Boot replicas reserve tokens from one Redis-backed Bucket4j budget pe
 
 Use JDK 25 and Docker with Compose. The Gradle Wrapper runs unit, integration and component tests during `build`. By default the latter suites start isolated Redis containers. Set `REDIS_TEST_BINARY` to the absolute path of a compatible local redis-server executable to run them without Docker. The offline reporting and investigation commands run without Redis or AWS.
 
-Run the commands below from the repository root. Compose binds the two replicas to loopback on ports 8081 and 8082. Wait for both servers to start (`docker compose -f config/compose.yaml logs replica-a replica-b`). The examples retry both operations, reusing their original keys. A new operation needs a fresh key. The Redis volume survives `docker compose -f config/compose.yaml down`.
+Run the commands below from the repository root. Compose binds the two replicas to loopback on ports 8081 and 8082. After startup, check each port with `curl -i http://127.0.0.1:8081/lookups` and `curl -i http://127.0.0.1:8082/lookups` (use `curl.exe` in Windows PowerShell). Wait until both return HTTP 405 for GET on the POST-only endpoint. The examples retry both operations, reusing their original keys. For a fresh journey, change both keys. The Redis volume survives `docker compose -f config/compose.yaml down`.
 
 ### Windows PowerShell
 
